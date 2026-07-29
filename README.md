@@ -71,13 +71,9 @@ python main.py
 
 ## 📸 Results
 
-### Weather Check
-
-![Weather Forecast](assets/screenshot_wcheck.png)
-
 ### SMS Notification
 
-![SMS Alert](Assets/screenshot_sms.jpeg)
+![SMS Alert](assets/screenshot_sms.jpeg)
 
 ## Project Structure
 
