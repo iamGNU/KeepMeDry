@@ -1,0 +1,38 @@
+name: rain_alert
+
+on:
+  schedule:
+    # Runs every hour
+    - cron: "*/5 * * * *"
+
+  # Allows you to run it manually from GitHub
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run weather alert
+        env:
+          ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+          AUTH_KEY: ${{ secrets.AUTH_KEY }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          FROM_NUMBER: ${{ secrets.FROM_NUMBER }}
+          TO_NUMBER: ${{ secrets.TO_NUMBER }}
+          MY_LAT: ${{ secrets.MY_LAT }}
+          MY_LON: ${{ secrets.MY_LON }}
+        run: python main.py
