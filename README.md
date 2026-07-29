@@ -73,11 +73,11 @@ python main.py
 
 ### Weather Check
 
-![Weather Forecast](assets/screenshot_sms.png)
+![Weather Forecast](assets/screenshot_wcheck.png)
 
 ### SMS Notification
 
-![SMS Alert](Assets/sms-alert.png)
+![SMS Alert](Assets/screenshot_sms.jpeg)
 
 ## Project Structure
 
