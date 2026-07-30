@@ -2,8 +2,8 @@ name: rain_alert
 
 on:
   schedule:
-    # Runs every hour
-    - cron: "*/5 * * * *"
+    # Runs every day at 7am IST
+    - cron: "30 1 * * *"
 
   # Allows you to run it manually from GitHub
   workflow_dispatch:
