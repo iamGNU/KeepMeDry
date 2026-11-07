@@ -1,38 +1,93 @@
-name: rain_alert
+name: KeepMeDry
 
 on:
   schedule:
-    # Runs every hour
-    - cron: "*/5 * * * *"
+    # Every 15 minutes: picks up new messages and sends alerts that are due.
+    # Each subscriber's alert goes out at ALERT_HOUR in their own time zone.
+    # GitHub may delay scheduled runs, especially at busy times.
+    - cron: "*/15 * * * *"
 
   # Allows you to run it manually from GitHub
   workflow_dispatch:
 
+  # Run the tests on every push and pull request (the bot doesn't run)
+  push:
+  pull_request:
+
+# Never run two bot instances at once: they would both edit the subscriber file.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+  cancel-in-progress: false
+
 jobs:
-  run-script:
+  test:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
-      - name: Run weather alert
+      - name: Run tests
+        run: pytest
+
+  run-bot:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write  # to save the subscriber file to the data branch
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load subscriber data
         env:
-          ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
-          AUTH_KEY: ${{ secrets.AUTH_KEY }}
-          APP_KEY: ${{ secrets.APP_KEY }}
-          FROM_NUMBER: ${{ secrets.FROM_NUMBER }}
-          TO_NUMBER: ${{ secrets.TO_NUMBER }}
-          MY_LAT: ${{ secrets.MY_LAT }}
-          MY_LON: ${{ secrets.MY_LON }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" data > /dev/null; then
+            git clone --quiet --depth 1 --branch data "$REMOTE" data
+          else
+            echo "No data branch yet; starting with no subscribers."
+            git init --quiet -b data data
+            git -C data remote add origin "$REMOTE"
+          fi
+
+      - name: Run bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DATA_KEY: ${{ secrets.DATA_KEY }}
+          ALERT_HOUR: ${{ vars.ALERT_HOUR || '7' }}
+          FORECAST_HOURS: ${{ vars.FORECAST_HOURS || '15' }}
+          DATA_FILE: data/subscribers.enc
         run: python main.py
+
+      - name: Save subscriber data
+        if: always()
+        run: |
+          cd data
+          [ -f subscribers.enc ] || exit 0
+          git add subscribers.enc
+          if git diff --cached --quiet; then
+            echo "No changes."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit --quiet -m "Update subscriber data"
+          git push --quiet origin HEAD:data

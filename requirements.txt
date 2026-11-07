@@ -1,2 +1,4 @@
-requests
-twilio
+requests==2.34.2
+cryptography==50.0.2
+# Time zone data for Windows (Linux already has it)
+tzdata==2026.6
